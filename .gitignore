@@ -36,3 +36,6 @@ enhanced_settings.json
 
 # Claude 관련 (로컬 설정)
 .claude/
+
+# 임시 업로드 파일
+.tmp.driveupload/
