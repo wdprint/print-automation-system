@@ -393,12 +393,8 @@ class PrintAutomationGUI:
     
     def open_basic_settings(self):
         """기본 위치 설정 창 열기"""
-        try:
-            from settings_gui import SettingsGUI
-            settings_window = SettingsGUI(parent=self)
-            self.root.wait_window(settings_window.window)
-        except ImportError:
-            messagebox.showwarning("경고", "기본 설정 모듈을 찾을 수 없습니다")
+        # 고급 설정과 동일한 창 사용 (통합됨)
+        self.open_enhanced_settings()
     
     def reload_enhanced_settings(self):
         """향상된 설정 다시 로드"""
