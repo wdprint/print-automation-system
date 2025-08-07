@@ -419,22 +419,88 @@ class PrintAutomationGUI:
 
 def main():
     """메인 함수"""
-    # 의존성 확인
-    try:
-        import tkinterdnd2
-        import fitz
-        from PIL import Image
-        import numpy
-    except ImportError as e:
-        print(f"필요한 패키지가 설치되지 않았습니다: {e}")
-        print("\n다음 명령으로 설치하세요:")
-        print("pip install tkinterdnd2 PyMuPDF Pillow numpy")
-        input("\n엔터를 눌러 종료하세요...")
-        return
+    import sys
+    import argparse
     
-    # GUI 실행
-    app = EnhancedPrintAutomationGUI()
-    app.run()
+    # 명령줄 인자 파싱
+    parser = argparse.ArgumentParser(description='인쇄 자동화 시스템')
+    parser.add_argument('--cli', action='store_true', help='CLI 모드로 실행')
+    parser.add_argument('--settings', action='store_true', help='설정 창만 열기')
+    parser.add_argument('files', nargs='*', help='처리할 파일들')
+    
+    args = parser.parse_args()
+    
+    # CLI 모드
+    if args.cli:
+        if len(args.files) < 2:
+            print("오류: 최소 2개 파일이 필요합니다 (의뢰서 PDF + 썸네일/QR)")
+            sys.exit(1)
+        
+        # 파일 분류
+        order_pdf = None
+        print_pdf = None
+        qr_image = None
+        
+        for file_path in args.files:
+            if file_path.lower().endswith('.pdf'):
+                if '의뢰서' in file_path:
+                    order_pdf = file_path
+                else:
+                    print_pdf = file_path
+            elif file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                qr_image = file_path
+        
+        if not order_pdf:
+            print("오류: 의뢰서 PDF가 없습니다")
+            sys.exit(1)
+        
+        if not print_pdf and not qr_image:
+            print("오류: 썸네일 PDF 또는 QR 이미지가 필요합니다")
+            sys.exit(1)
+        
+        # 직접 처리 (GUI 없이)
+        try:
+            from print_processor import EnhancedPrintProcessor
+            processor = EnhancedPrintProcessor()
+            result = processor.process_files_direct(order_pdf, print_pdf, qr_image)
+            if result:
+                print("처리 완료")
+                sys.exit(0)
+            else:
+                print("처리 실패")
+                sys.exit(1)
+        except Exception as e:
+            print(f"오류: {e}")
+            sys.exit(1)
+    
+    # 설정 모드
+    elif args.settings:
+        try:
+            from settings_gui import EnhancedSettingsGUI
+            settings_app = EnhancedSettingsGUI()
+            settings_app.run()
+        except ImportError as e:
+            print(f"설정 모듈을 찾을 수 없습니다: {e}")
+            sys.exit(1)
+    
+    # GUI 모드 (기본)
+    else:
+        # 의존성 확인
+        try:
+            import tkinterdnd2
+            import fitz
+            from PIL import Image
+            import numpy
+        except ImportError as e:
+            print(f"필요한 패키지가 설치되지 않았습니다: {e}")
+            print("\n다음 명령으로 설치하세요:")
+            print("pip install tkinterdnd2 PyMuPDF Pillow numpy")
+            input("\n엔터를 눌러 종료하세요...")
+            return
+        
+        # GUI 실행
+        app = PrintAutomationGUI()
+        app.run()
 
 
 if __name__ == "__main__":

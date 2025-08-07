@@ -463,6 +463,18 @@ class EnhancedPrintProcessor:
             print(f"PDF 처리 중 오류: {e}")
             return False
     
+    def process_files_direct(self, order_pdf, print_pdf=None, qr_image=None):
+        """GUI 없이 직접 파일 처리"""
+        # dropped_files 설정
+        self.dropped_files = {
+            'order_pdf': order_pdf,
+            'print_pdf': print_pdf,
+            'qr_image': qr_image
+        }
+        
+        # 처리 실행
+        return self.process_files_enhanced()
+    
     def clear_cache(self):
         """캐시 비우기"""
         self.blank_detection_cache.clear()
