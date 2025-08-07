@@ -109,8 +109,8 @@ def create_default_config():
                 "max_width": 160,
                 "max_height": 250,
                 "positions": [
-                    {"x": 70, "y": 180},
-                    {"x": 490, "y": 180}
+                    {"x": 230, "y": 234},
+                    {"x": 658, "y": 228}
                 ],
                 "multi_page": False,
                 "page_selection": "1",
@@ -119,11 +119,11 @@ def create_default_config():
                 "sharpness": 1.0
             },
             "qr": {
-                "max_width": 50,
-                "max_height": 50,
+                "max_width": 70,
+                "max_height": 70,
                 "positions": [
-                    {"x": 230, "y": 470},
-                    {"x": 650, "y": 470}
+                    {"x": 315, "y": 500},
+                    {"x": 730, "y": 500}
                 ]
             },
             "blank_detection": {
