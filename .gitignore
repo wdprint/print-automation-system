@@ -1,0 +1,38 @@
+# Python 관련
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 빌드 관련
+build/
+dist/
+*.spec
+*.exe
+
+# 설정 파일 (민감한 정보가 있을 수 있음)
+settings.json
+enhanced_settings.json
+
+# 임시 파일
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# IDE 관련
+.vscode/
+.idea/
+*.iml
+
+# 압축 파일
+*.zip
+*.rar
+*.7z
+
+# 테스트 파일
+테스트파일모음/
+백업/
+
+# Claude 관련 (로컬 설정)
+.claude/
