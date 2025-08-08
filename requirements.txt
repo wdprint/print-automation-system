@@ -1,0 +1,25 @@
+# PDF 처리
+PyMuPDF==1.23.26        # 핵심 PDF 처리 (fitz)
+PyPDF2==3.0.1           # 보조 PDF 처리 (호환성용)
+pdf2image==1.16.3       # PDF 이미지 변환
+Pillow==10.1.0          # 이미지 처리
+pypdfium2==4.25.0       # 대체 PDF 렌더러
+numpy==1.24.4           # 수학 연산 (백지 감지용)
+
+# GUI
+tkinterdnd2==0.3.0
+customtkinter==5.2.1
+
+# 이미지 파일 처리 (QR 이미지는 기존 파일 사용)
+
+# 유틸리티
+python-dotenv==1.0.0
+colorlog==6.8.0
+psutil==5.9.6  # 시스템 리소스 모니터링
+
+# 빌드 도구
+pyinstaller==6.3.0
+
+# 개발 도구
+pytest==7.4.3
+black==23.12.0
