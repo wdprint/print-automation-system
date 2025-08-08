@@ -11,9 +11,10 @@ import io
 class CoordinatePreview(tk.Frame):
     """좌표 미리보기 위젯"""
     
-    def __init__(self, parent, settings_manager, **kwargs):
+    def __init__(self, parent, settings_manager, parent_window=None, **kwargs):
         super().__init__(parent, **kwargs)
         self.settings = settings_manager
+        self.parent_window = parent_window  # 부모 창 참조 직접 설정
         self.sample_image = None
         self.photo_image = None
         self.scale_factor = 1.0
@@ -611,12 +612,7 @@ class CoordinatePreview(tk.Frame):
                 self.drag_start_y = orig_y
                 
                 # 드래그 중 실시간 업데이트
-                try:
-                    parent = self.master.master if hasattr(self, 'master') and hasattr(self.master, 'master') else None
-                    if parent and hasattr(parent, 'update_box_list'):
-                        parent.update_box_list()
-                except:
-                    pass
+                self._update_parent_window()
                 
             elif self.resizing:
                 # 박스 크기 조정 - 개선된 버전
@@ -685,12 +681,7 @@ class CoordinatePreview(tk.Frame):
                         self.settings.set('coordinates.qr_boxes', qr_boxes)
                 
                 # 리사이징 중 실시간 업데이트
-                try:
-                    parent = self.master.master if hasattr(self, 'master') and hasattr(self.master, 'master') else None
-                    if parent and hasattr(parent, 'update_box_list'):
-                        parent.update_box_list()
-                except:
-                    pass
+                self._update_parent_window()
             
             # 미리보기 업데이트
             self.display_preview()
@@ -700,12 +691,7 @@ class CoordinatePreview(tk.Frame):
                 self.master.master.update_coordinate_fields()
             
             # 부모 창의 박스 목록 실시간 업데이트 - 드래그 중에도 계속 업데이트
-            try:
-                parent = self.master.master if hasattr(self, 'master') and hasattr(self.master, 'master') else None
-                if parent and hasattr(parent, 'update_box_list'):
-                    parent.update_box_list()
-            except:
-                pass
+            self._update_parent_window()
     
     def on_canvas_release(self, event):
         """캔버스 마우스 버튼 릴리즈 이벤트"""
@@ -932,3 +918,22 @@ class CoordinatePreview(tk.Frame):
                 tk.messagebox.showerror("저장 실패", "좌표 설정 저장에 실패했습니다.")
         except Exception as e:
             tk.messagebox.showerror("오류", f"저장 중 오류 발생: {str(e)}")
+    
+    def _update_parent_window(self):
+        """부모 창의 좌표 목록을 실시간으로 업데이트"""
+        try:
+            # parent_window가 설정되어 있는지 확인
+            if self.parent_window and hasattr(self.parent_window, 'update_box_list'):
+                self.parent_window.update_box_list()
+            # master.master 접근 방식도 시도 (fallback)
+            elif hasattr(self, 'master') and hasattr(self.master, 'master'):
+                parent = self.master.master
+                if hasattr(parent, 'update_box_list'):
+                    parent.update_box_list()
+        except Exception as e:
+            # 조용히 실패 (드래그 중 에러 방지)
+            pass
+    
+    def set_parent_window(self, parent_window):
+        """부모 창 참조 설정"""
+        self.parent_window = parent_window

@@ -1,0 +1,93 @@
+{
+  "version": "2.0",
+  "coordinates": {
+    "page_size": {
+      "width": 842,
+      "height": 595
+    },
+    "thumbnail_boxes": [
+      {
+        "x": 230,
+        "y": 234,
+        "width": 160,
+        "height": 250,
+        "name": "왼쪽 썸네일"
+      },
+      {
+        "x": 658,
+        "y": 228,
+        "width": 160,
+        "height": 250,
+        "name": "오른쪽 썸네일"
+      }
+    ],
+    "qr_boxes": [
+      {
+        "x": 315,
+        "y": 500,
+        "size": 70,
+        "name": "왼쪽 QR"
+      },
+      {
+        "x": 730,
+        "y": 500,
+        "size": 70,
+        "name": "오른쪽 QR"
+      }
+    ]
+  },
+  "thumbnail": {
+    "enabled": true,
+    "render_dpi": 432,
+    "max_width": 200,
+    "max_height": 300,
+    "page_selection": "1",
+    "multi_page": false,
+    "grayscale": false,
+    "contrast": 1.0,
+    "brightness": 1.0
+  },
+  "qr": {
+    "enabled": true,
+    "opacity": 1.0
+  },
+  "blank_detection": {
+    "enabled": false,
+    "threshold": 95,
+    "algorithm": "simple",
+    "exclude_areas": {
+      "header": 50,
+      "footer": 50,
+      "left_margin": 20,
+      "right_margin": 20
+    }
+  },
+  "pdf_normalization": {
+    "enabled": true,
+    "auto_detect": true
+  },
+  "processing": {
+    "multithreading": true,
+    "max_workers": 4,
+    "cache_enabled": true,
+    "cache_size_mb": 100
+  },
+  "ui": {
+    "language": "ko",
+    "theme": "default",
+    "window_always_on_top": false,
+    "show_tooltips": true,
+    "confirm_before_process": false
+  },
+  "presets": {
+    "default": {
+      "name": "기본",
+      "description": "표준 설정",
+      "hotkey": "F1",
+      "coordinates": {},
+      "usage_count": 0,
+      "last_used": null
+    }
+  },
+  "rules": []
+}

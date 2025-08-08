@@ -293,7 +293,11 @@ class ModernSettingsWindow:
         preview_frame = tk.Frame(right_frame, bg=self.colors['bg'])
         preview_frame.pack(fill='both', expand=True)
         
-        self.coord_preview = CoordinatePreview(preview_frame, self.settings_manager)
+        self.coord_preview = CoordinatePreview(
+            preview_frame, 
+            self.settings_manager, 
+            parent_window=self  # 생성자에서 직접 전달
+        )
         self.coord_preview.pack(fill='both', expand=True)
     
     def create_coordinate_inputs(self, parent):

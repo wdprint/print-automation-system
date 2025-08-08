@@ -257,6 +257,33 @@ class PDFNormalizer:
             self.logger.warning(f"컨텐츠 영역 감지 실패: {e}")
             return None
     
+    def process_for_thumbnail(self, pdf_path: str) -> str:
+        """
+        썸네일 생성을 위해 PDF 정규화
+        회전된 페이지를 올바른 방향으로 조정
+        
+        Args:
+            pdf_path: 원본 PDF 경로
+            
+        Returns:
+            str: 정규화된 PDF 경로 (회전이 없으면 원본 경로)
+        """
+        rotation_info = self.detect_rotation(pdf_path)
+        
+        # 회전이 필요한 페이지가 있는지 확인
+        needs_normalization = any(
+            page_info.get('needs_correction', False) 
+            for page_info in rotation_info.values()
+        )
+        
+        if needs_normalization:
+            # 임시 디렉토리에 정규화된 버전 생성
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            return self.normalize(pdf_path, temp_dir)
+        
+        return pdf_path
+    
     def split_2up(self, pdf_path: str, output_dir: str = None) -> Tuple[str, str]:
         """
         2-up 레이아웃 PDF를 좌우로 분할

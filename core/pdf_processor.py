@@ -298,6 +298,13 @@ class PDFProcessor:
         thumbnails = []
         
         try:
+            # PDF 정규화 (회전 수정) - 썸네일 생성 전에 적용
+            if self.settings.get('pdf_normalization.enabled', True):
+                normalized_path = self.pdf_normalizer.process_for_thumbnail(pdf_path)
+                if normalized_path != pdf_path:
+                    self.logger.info(f"썸네일용 PDF 정규화: {normalized_path}")
+                    pdf_path = normalized_path
+            
             doc = fitz.open(pdf_path)
             
             # 페이지 선택 파싱
@@ -316,7 +323,10 @@ class PDFProcessor:
                     continue
                 
                 # 페이지를 이미지로 변환 (고해상도)
-                mat = fitz.Matrix(2.0, 2.0)  # 2배 해상도
+                # DPI 기반 해상도 설정 (432 DPI = 6배)
+                dpi = self.settings.get('thumbnail.render_dpi', 432)
+                zoom = dpi / 72.0  # 72 DPI가 기본값
+                mat = fitz.Matrix(zoom, zoom)  # 432 DPI = 6배
                 pix = page.get_pixmap(matrix=mat, alpha=False)
                 img_data = pix.pil_tobytes(format="PNG")
                 img = Image.open(BytesIO(img_data))
@@ -324,14 +334,16 @@ class PDFProcessor:
                 # 이미지 효과 적용
                 img = self._apply_image_effects(img)
                 
-                # 썸네일 크기로 리사이즈 (새로운 배열 구조에서 첫 번째 박스 크기 사용)
-                thumbnail_boxes = self.settings.get('coordinates.thumbnail_boxes', [])
-                if thumbnail_boxes:
-                    thumb_width = thumbnail_boxes[0].get('width', 160)
-                    thumb_height = thumbnail_boxes[0].get('height', 250)
-                else:
-                    thumb_width = 160
-                    thumb_height = 250
+                # 썸네일 크기 가져오기 (설정에서 통일)
+                thumb_width = self.settings.get('thumbnail.max_width', 200)
+                thumb_height = self.settings.get('thumbnail.max_height', 300)
+                
+                # 두 단계 리사이징으로 품질 향상
+                # 1단계: 목표 크기의 2배로 먼저 리사이즈
+                intermediate_size = (thumb_width * 2, thumb_height * 2)
+                img.thumbnail(intermediate_size, Image.Resampling.LANCZOS)
+                
+                # 2단계: 최종 크기로 리사이즈
                 img.thumbnail((thumb_width, thumb_height), Image.Resampling.LANCZOS)
                 
                 thumbnails.append(img)
@@ -381,7 +393,16 @@ class PDFProcessor:
         return pages if pages else [0]
     
     def _apply_image_effects(self, img: Image.Image) -> Image.Image:
-        """이미지 효과 적용 (v1 기능)"""
+        """이미지 효과 적용"""
+        from PIL import ImageFilter
+        
+        # 언샵 마스크는 항상 적용 (PDF→이미지 변환 시 블러 보정)
+        img = img.filter(ImageFilter.UnsharpMask(
+            radius=1,
+            percent=120,
+            threshold=3
+        ))
+        
         # 흑백 변환
         if self.settings.get('thumbnail.grayscale', False):
             img = ImageOps.grayscale(img)
@@ -417,15 +438,11 @@ class PDFProcessor:
         # 2x2 그리드로 결합 (최대 4개)
         thumbnails = thumbnails[:4]
         
-        # 각 썸네일 크기 (새로운 배열 구조에서 첫 번째 박스 크기 사용)
-        thumbnail_boxes = self.settings.get('coordinates.thumbnail_boxes', [])
-        if thumbnail_boxes:
-            thumb_size = (
-                thumbnail_boxes[0].get('width', 160),
-                thumbnail_boxes[0].get('height', 250)
-            )
-        else:
-            thumb_size = (160, 250)
+        # 썸네일 크기 (설정에서 가져오기)
+        thumb_size = (
+            self.settings.get('thumbnail.max_width', 200),
+            self.settings.get('thumbnail.max_height', 300)
+        )
         
         # 결합 이미지 생성
         if len(thumbnails) == 2:

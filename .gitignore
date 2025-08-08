@@ -36,6 +36,14 @@ env/
 Thumbs.db
 nul
 
+# 임시 업로드 파일
+.tmp.driveupload/
+
+# 백업 파일
+*_backup.py
+*_improved.py
+check_*.py
+
 # Project specific
 *.log
 *.pdf
