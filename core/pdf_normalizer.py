@@ -30,23 +30,35 @@ class PDFNormalizer:
             doc = fitz.open(pdf_path)
             needs_normalization = False
             
-            # 각 페이지 검사
-            for page_num, page in enumerate(doc):
-                # 회전 확인
-                rotation = page.rotation
-                if rotation != 0:
-                    self.logger.info(f"페이지 {page_num + 1}: {rotation}도 회전 감지")
-                    needs_normalization = True
-                
-                # 페이지 크기 확인 (A4 가로: 842 x 595 포인트)
-                rect = page.rect
-                width = rect.width
-                height = rect.height
-                
-                # 세로 방향인지 확인
-                if height > width:
-                    self.logger.info(f"페이지 {page_num + 1}: 세로 방향 감지")
-                    needs_normalization = True
+            # 파일명에 "의뢰서"가 포함되어 있는지 확인
+            is_order_pdf = "의뢰서" in os.path.basename(pdf_path)
+            
+            if is_order_pdf:
+                # 의뢰서 PDF도 회전 확인 및 보정
+                self.logger.info(f"의뢰서 PDF 감지: 회전 확인")
+                for page_num, page in enumerate(doc):
+                    rotation = page.rotation
+                    if rotation != 0:
+                        self.logger.info(f"페이지 {page_num + 1}: {rotation}도 회전 감지")
+                        needs_normalization = True
+                        break
+            else:
+                # 썸네일 PDF는 첫 페이지만 확인
+                self.logger.info(f"썸네일 PDF: 첫 페이지만 회전 확인")
+                if len(doc) > 0:
+                    page = doc[0]
+                    rotation = page.rotation
+                    if rotation != 0:
+                        self.logger.info(f"페이지 1: {rotation}도 회전 감지")
+                        needs_normalization = True
+                    
+                    rect = page.rect
+                    width = rect.width
+                    height = rect.height
+                    
+                    if height > width:
+                        self.logger.info(f"페이지 1: 세로 방향 감지")
+                        needs_normalization = True
             
             # 정규화가 필요한 경우
             if needs_normalization:
@@ -64,7 +76,7 @@ class PDFNormalizer:
     def _apply_normalization(self, doc: fitz.Document, original_path: str, 
                             output_dir: str = None) -> str:
         """
-        실제 정규화 적용
+        실제 정규화 적용 - v1 방식 래스터화 포함
         
         Args:
             doc: PyMuPDF 문서 객체
@@ -75,6 +87,9 @@ class PDFNormalizer:
             정규화된 파일 경로
         """
         try:
+            from PIL import Image
+            from io import BytesIO
+            
             # 출력 경로 생성
             if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
@@ -90,36 +105,67 @@ class PDFNormalizer:
             new_doc = fitz.open()
             
             for page_num, page in enumerate(doc):
-                # 페이지 복사
-                rect = page.rect
-                width = rect.width
-                height = rect.height
-                
-                # 회전 처리
                 rotation = page.rotation
-                if rotation != 0:
-                    # 회전 제거
-                    page.set_rotation(0)
-                    self.logger.debug(f"페이지 {page_num + 1}: 회전 제거 ({rotation}도)")
+                mediabox = page.mediabox
+                rect = page.rect
                 
-                # 세로를 가로로 변환
-                if height > width:
-                    # 90도 회전하여 가로로 만들기
-                    page.set_rotation(90)
-                    self.logger.debug(f"페이지 {page_num + 1}: 가로 방향으로 변환")
-                
-                # 표준 A4 가로 크기로 조정 (필요한 경우)
-                target_width = 842
-                target_height = 595
-                
-                # 페이지를 새 문서에 추가
-                new_page = new_doc.new_page(width=target_width, height=target_height)
-                
-                # 원본 페이지 내용 복사
-                new_page.show_pdf_page(new_page.rect, doc, page_num)
+                # 회전이 90도 또는 270도인 경우 래스터화 처리 (v1 방식)
+                if rotation in [90, 270]:
+                    self.logger.info(f"페이지 {page_num + 1}: {rotation}도 회전 - 래스터화 처리")
+                    
+                    # 페이지를 이미지로 변환 (적절한 해상도)
+                    mat = fitz.Matrix(1.5, 1.5)  # 1.5배 해상도 (파일 크기 최적화)
+                    pix = page.get_pixmap(matrix=mat, alpha=False)
+                    img_data = pix.pil_tobytes(format="PNG")
+                    img = Image.open(BytesIO(img_data))
+                    
+                    # 실제로 가로로 보이도록 페이지 생성
+                    # rect는 실제 보이는 크기 (842x595), mediabox는 물리적 크기 (595x842)
+                    # 의뢰서는 항상 가로형이어야 하므로 842x595로 설정
+                    new_width = max(rect.width, rect.height)  # 큰 값이 너비 (842)
+                    new_height = min(rect.width, rect.height)  # 작은 값이 높이 (595)
+                    new_page = new_doc.new_page(width=new_width, height=new_height)
+                    # 회전 속성을 명시적으로 0으로 설정
+                    new_page.set_rotation(0)
+                    
+                    # 이미지를 PNG로 저장 후 삽입 (PDF 저장 실패 방지)
+                    img_buffer = BytesIO()
+                    img.save(img_buffer, format='PNG')
+                    img_buffer.seek(0)
+                    
+                    # PDF 페이지에 삽입
+                    new_page.insert_image(new_page.rect, stream=img_buffer.getvalue())
+                    
+                elif rotation != 0:
+                    # 180도 회전 등 다른 경우는 벡터 방식으로 처리
+                    self.logger.info(f"페이지 {page_num + 1}: {rotation}도 회전 보정")
+                    
+                    width = mediabox.width
+                    height = mediabox.height
+                    new_page = new_doc.new_page(width=width, height=height)
+                    
+                    # 회전 보정
+                    new_page.show_pdf_page(
+                        new_page.rect,
+                        doc, 
+                        page_num,
+                        rotate=-rotation
+                    )
+                    # 회전 속성을 명시적으로 0으로 설정
+                    new_page.set_rotation(0)
+                else:
+                    # 회전이 없으면 원본 그대로 복사
+                    width = mediabox.width
+                    height = mediabox.height
+                    new_page = new_doc.new_page(width=width, height=height)
+                    new_page.show_pdf_page(
+                        new_page.rect,
+                        doc,
+                        page_num
+                    )
             
-            # 저장
-            new_doc.save(output_path)
+            # 저장 (압축 옵션 적용)
+            new_doc.save(output_path, garbage=4, deflate=True, clean=True)
             new_doc.close()
             
             self.logger.info(f"PDF 정규화 완료: {output_path}")
@@ -132,6 +178,7 @@ class PDFNormalizer:
     def detect_rotation(self, pdf_path: str) -> dict:
         """
         PDF 페이지별 회전 감지
+        의뢰서 PDF는 모든 페이지, 썸네일 PDF는 첫 페이지만 확인
         
         Args:
             pdf_path: PDF 파일 경로
@@ -144,15 +191,55 @@ class PDFNormalizer:
         try:
             doc = fitz.open(pdf_path)
             
-            for page_num, page in enumerate(doc):
-                rotation = page.rotation
-                orientation = self._detect_orientation(page)
-                
-                rotations[page_num] = {
-                    'rotation': rotation,
-                    'orientation': orientation,
-                    'needs_correction': rotation != 0 or orientation == 'portrait'
-                }
+            # 파일명에 "의뢰서"가 포함되어 있는지 확인
+            is_order_pdf = "의뢰서" in os.path.basename(pdf_path)
+            
+            if is_order_pdf:
+                # 의뢰서 PDF는 모든 페이지 확인
+                for page_num, page in enumerate(doc):
+                    rotation = page.rotation
+                    mediabox = page.mediabox
+                    
+                    # 회전을 고려한 실제 방향 판단
+                    if rotation in [90, 270]:
+                        actual_width = mediabox.height
+                        actual_height = mediabox.width
+                    else:
+                        actual_width = mediabox.width
+                        actual_height = mediabox.height
+                    
+                    orientation = 'landscape' if actual_width > actual_height else 'portrait'
+                    
+                    rotations[page_num] = {
+                        'rotation': rotation,
+                        'mediabox': (mediabox.width, mediabox.height),
+                        'actual_size': (actual_width, actual_height),
+                        'orientation': orientation,
+                        'needs_correction': rotation != 0
+                    }
+            else:
+                # 썸네일 PDF는 첫 페이지만 확인
+                if len(doc) > 0:
+                    page = doc[0]
+                    rotation = page.rotation
+                    mediabox = page.mediabox
+                    
+                    if rotation in [90, 270]:
+                        actual_width = mediabox.height
+                        actual_height = mediabox.width
+                    else:
+                        actual_width = mediabox.width
+                        actual_height = mediabox.height
+                    
+                    orientation = 'landscape' if actual_width > actual_height else 'portrait'
+                    
+                    rotations[0] = {
+                        'rotation': rotation,
+                        'mediabox': (mediabox.width, mediabox.height),
+                        'actual_size': (actual_width, actual_height),
+                        'orientation': orientation,
+                        'needs_correction': rotation != 0
+                    }
             
             doc.close()
             return rotations
@@ -182,160 +269,21 @@ class PDFNormalizer:
         
         return 'landscape' if width > height else 'portrait'
     
-    def auto_crop(self, pdf_path: str, output_path: str = None) -> str:
-        """
-        PDF 자동 크롭 (여백 제거)
-        
-        Args:
-            pdf_path: 원본 PDF 경로
-            output_path: 출력 경로 (None이면 원본 덮어쓰기)
-            
-        Returns:
-            크롭된 PDF 경로
-        """
-        try:
-            doc = fitz.open(pdf_path)
-            
-            for page in doc:
-                # 컨텐츠 영역 감지
-                content_rect = self._detect_content_area(page)
-                
-                if content_rect:
-                    # 페이지 크롭
-                    page.set_cropbox(content_rect)
-                    self.logger.debug(f"페이지 크롭: {content_rect}")
-            
-            # 저장
-            if not output_path:
-                output_path = pdf_path
-            
-            doc.save(output_path)
-            doc.close()
-            
-            self.logger.info(f"자동 크롭 완료: {output_path}")
-            return output_path
-            
-        except Exception as e:
-            self.logger.error(f"자동 크롭 실패: {e}")
-            return pdf_path
     
-    def _detect_content_area(self, page: fitz.Page) -> Optional[fitz.Rect]:
-        """
-        페이지의 실제 컨텐츠 영역 감지
-        
-        Args:
-            page: PyMuPDF 페이지 객체
-            
-        Returns:
-            컨텐츠 영역 사각형 또는 None
-        """
-        try:
-            # 텍스트 블록 가져오기
-            blocks = page.get_text("blocks")
-            
-            if not blocks:
-                return None
-            
-            # 컨텐츠 경계 찾기
-            min_x = min(block[0] for block in blocks)
-            min_y = min(block[1] for block in blocks)
-            max_x = max(block[2] for block in blocks)
-            max_y = max(block[3] for block in blocks)
-            
-            # 여백 추가 (10 포인트)
-            margin = 10
-            content_rect = fitz.Rect(
-                max(0, min_x - margin),
-                max(0, min_y - margin),
-                min(page.rect.width, max_x + margin),
-                min(page.rect.height, max_y + margin)
-            )
-            
-            return content_rect
-            
-        except Exception as e:
-            self.logger.warning(f"컨텐츠 영역 감지 실패: {e}")
-            return None
     
     def process_for_thumbnail(self, pdf_path: str) -> str:
         """
         썸네일 생성을 위해 PDF 정규화
-        회전된 페이지를 올바른 방향으로 조정
+        썸네일 PDF는 회전 감지하지 않음 (리소스 절약)
         
         Args:
             pdf_path: 원본 PDF 경로
             
         Returns:
-            str: 정규화된 PDF 경로 (회전이 없으면 원본 경로)
+            str: 원본 PDF 경로 (회전 감지 없음)
         """
-        rotation_info = self.detect_rotation(pdf_path)
-        
-        # 회전이 필요한 페이지가 있는지 확인
-        needs_normalization = any(
-            page_info.get('needs_correction', False) 
-            for page_info in rotation_info.values()
-        )
-        
-        if needs_normalization:
-            # 임시 디렉토리에 정규화된 버전 생성
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            return self.normalize(pdf_path, temp_dir)
-        
+        # 썸네일 PDF는 회전 감지/보정하지 않고 원본 그대로 사용
+        # 리소스 절약 및 성능 향상
+        self.logger.debug(f"썸네일 PDF는 회전 감지 건너뛰기: {pdf_path}")
         return pdf_path
     
-    def split_2up(self, pdf_path: str, output_dir: str = None) -> Tuple[str, str]:
-        """
-        2-up 레이아웃 PDF를 좌우로 분할
-        
-        Args:
-            pdf_path: 2-up PDF 경로
-            output_dir: 출력 디렉토리
-            
-        Returns:
-            (왼쪽 PDF 경로, 오른쪽 PDF 경로)
-        """
-        try:
-            doc = fitz.open(pdf_path)
-            
-            # 출력 경로 설정
-            if not output_dir:
-                output_dir = os.path.dirname(pdf_path)
-            
-            base_name = Path(pdf_path).stem
-            left_path = os.path.join(output_dir, f"{base_name}_left.pdf")
-            right_path = os.path.join(output_dir, f"{base_name}_right.pdf")
-            
-            # 좌우 문서 생성
-            left_doc = fitz.open()
-            right_doc = fitz.open()
-            
-            for page in doc:
-                rect = page.rect
-                mid_x = rect.width / 2
-                
-                # 왼쪽 페이지
-                left_rect = fitz.Rect(0, 0, mid_x, rect.height)
-                left_page = left_doc.new_page(width=mid_x, height=rect.height)
-                left_page.show_pdf_page(left_page.rect, doc, page.number, clip=left_rect)
-                
-                # 오른쪽 페이지
-                right_rect = fitz.Rect(mid_x, 0, rect.width, rect.height)
-                right_page = right_doc.new_page(width=mid_x, height=rect.height)
-                right_page.show_pdf_page(right_page.rect, doc, page.number, clip=right_rect)
-            
-            # 저장
-            left_doc.save(left_path)
-            right_doc.save(right_path)
-            
-            # 정리
-            left_doc.close()
-            right_doc.close()
-            doc.close()
-            
-            self.logger.info(f"2-up 분할 완료: {left_path}, {right_path}")
-            return left_path, right_path
-            
-        except Exception as e:
-            self.logger.error(f"2-up 분할 실패: {e}")
-            return None, None

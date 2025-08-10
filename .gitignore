@@ -42,18 +42,28 @@ nul
 # 백업 파일
 *_backup.py
 *_improved.py
+*_original.py
 check_*.py
+verify_*.py
+reset_*.py
 
 # Project specific
 *.log
-*.pdf
-*.png
-*.jpg
-*.jpeg
-data/
 temp/
 output/
-test_output/
+
+# Test outputs
+test_output*/
+comparison_output/
+thumbnail_test_output/
+test_vector_output/
+
+# Test generated files
+test_*.pdf
+method*.pdf
+*_test.pdf
+*_processed*.pdf
+test_render_*.png
 
 # Settings
 settings.json

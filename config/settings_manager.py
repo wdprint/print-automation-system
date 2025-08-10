@@ -66,16 +66,32 @@ class SettingsManager:
             ]
         },
         
-        # v1 통합: 썸네일 향상 설정
+        # 처리 모드 설정 (optimized: 최적화, vector: 벡터, hybrid: 하이브리드, raster: 래스터)
+        "processing": {
+            "mode": "rasterized_hybrid",  # 기본값: 래스터화된 하이브리드 (권장)
+            "vector_enabled": True,
+            "fallback_to_raster": True,  # 벡터 실패시 래스터로 폴백
+            "white_background": True,  # 썸네일 아래 흰 배경 추가
+            "optimal_dpi": 500  # 최적 DPI (품질과 크기의 균형)
+        },
+        
+        # 썸네일 설정 (통합)
         "thumbnail": {
             "max_width": 160,
             "max_height": 250,
+            "render_dpi": 500,  # 기본 DPI (고품질)
+            "optimal_dpi": 500,  # GUI와 연동되는 DPI 값
+            "high_quality_dpi": 1200,  # 고품질 모드용 DPI
+            "border": True,  # 테두리 표시
+            "white_border_size": 3,  # 흰색 배경 테두리 크기 (픽셀)
+            "background_color": "#FFFFFF",  # 배경색 (흰색)
             "page_selection": "1",
             "multi_page": False,
             "grayscale": False,
-            "contrast": 1.0,
-            "sharpness": 1.0,
-            "quality": 95
+            "contrast": 1.2,  # 적절한 대비
+            "sharpness": 1.0,  # 기본 선명도
+            "brightness": 1.0,
+            "quality": 95  # 최적 품질 (95가 적절)
         },
         
         # v1 통합: QR 코드 설정
@@ -224,7 +240,7 @@ class SettingsManager:
             default: 기본값
             
         Returns:
-            설정 값 또는 기본값
+            설정 값 또는 기본값 (딕셔너리/리스트는 깊은 복사본)
         """
         try:
             keys = key.split('.')
@@ -237,6 +253,11 @@ class SettingsManager:
                         return default
                 else:
                     return default
+            
+            # 딕셔너리나 리스트는 깊은 복사본 반환
+            if isinstance(value, (dict, list)):
+                import copy
+                return copy.deepcopy(value)
             
             return value
             
@@ -264,8 +285,12 @@ class SettingsManager:
                     target[k] = {}
                 target = target[k]
             
-            # 값 설정
-            target[keys[-1]] = value
+            # 값 설정 - 딕셔너리나 리스트는 깊은 복사
+            if isinstance(value, (dict, list)):
+                import copy
+                target[keys[-1]] = copy.deepcopy(value)
+            else:
+                target[keys[-1]] = value
             
             # 자동 저장
             return self.save()

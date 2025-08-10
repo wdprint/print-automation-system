@@ -57,8 +57,22 @@ class ImageHandler:
                 if img.mode != 'RGBA':
                     img = img.convert('RGBA')
                 
-                # 비율 유지하며 리사이즈
-                img.thumbnail(size, Image.Resampling.LANCZOS)
+                # resize() 사용으로 고품질 리사이즈
+                # 비율 유지하며 크기 계산
+                img_ratio = img.width / img.height
+                thumb_ratio = size[0] / size[1]
+                
+                if img_ratio > thumb_ratio:
+                    # 가로가 더 긴 경우
+                    new_width = size[0]
+                    new_height = int(size[0] / img_ratio)
+                else:
+                    # 세로가 더 긴 경우
+                    new_height = size[1]
+                    new_width = int(size[1] * img_ratio)
+                
+                # 고품질 리사이즈 (resize는 thumbnail보다 나은 품질)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 
                 # 정확한 크기로 캔버스 생성
                 thumbnail = Image.new('RGBA', size, (255, 255, 255, 0))

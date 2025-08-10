@@ -1,6 +1,7 @@
 """프리셋 관리 모듈"""
 
 import json
+import copy
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -10,52 +11,55 @@ from .constants import PRESETS_FILE, DEFAULT_COORDINATES
 class PresetManager:
     """프리셋 관리 - F1~F4 단축키 지원"""
     
-    DEFAULT_PRESETS = {
-        "1": {
-            "name": "기본",
-            "description": "표준 설정",
-            "hotkey": "F1",
-            "settings": {
-                "coordinates": DEFAULT_COORDINATES
+    @staticmethod
+    def get_default_presets():
+        """기본 프리셋 생성 - 매번 새로운 인스턴스 반환"""
+        return {
+            "1": {
+                "name": "기본",
+                "description": "표준 설정",
+                "hotkey": "",
+                "settings": {
+                    "coordinates": copy.deepcopy(DEFAULT_COORDINATES)
+                },
+                "usage_count": 0,
+                "last_used": None,
+                "created_at": datetime.now().isoformat()
             },
-            "usage_count": 0,
-            "last_used": None,
-            "created_at": datetime.now().isoformat()
-        },
-        "2": {
-            "name": "프리셋 2",
-            "description": "사용자 정의 2",
-            "hotkey": "F2",
-            "settings": {
-                "coordinates": DEFAULT_COORDINATES
+            "2": {
+                "name": "프리셋 2",
+                "description": "사용자 정의 2",
+                "hotkey": "",
+                "settings": {
+                    "coordinates": copy.deepcopy(DEFAULT_COORDINATES)
+                },
+                "usage_count": 0,
+                "last_used": None,
+                "created_at": datetime.now().isoformat()
             },
-            "usage_count": 0,
-            "last_used": None,
-            "created_at": datetime.now().isoformat()
-        },
-        "3": {
-            "name": "프리셋 3",
-            "description": "사용자 정의 3",
-            "hotkey": "F3",
-            "settings": {
-                "coordinates": DEFAULT_COORDINATES
+            "3": {
+                "name": "프리셋 3",
+                "description": "사용자 정의 3",
+                "hotkey": "",
+                "settings": {
+                    "coordinates": copy.deepcopy(DEFAULT_COORDINATES)
+                },
+                "usage_count": 0,
+                "last_used": None,
+                "created_at": datetime.now().isoformat()
             },
-            "usage_count": 0,
-            "last_used": None,
-            "created_at": datetime.now().isoformat()
-        },
-        "4": {
-            "name": "프리셋 4",
-            "description": "사용자 정의 4",
-            "hotkey": "F4",
-            "settings": {
-                "coordinates": DEFAULT_COORDINATES
-            },
-            "usage_count": 0,
-            "last_used": None,
-            "created_at": datetime.now().isoformat()
+            "4": {
+                "name": "프리셋 4",
+                "description": "사용자 정의 4",
+                "hotkey": "",
+                "settings": {
+                    "coordinates": copy.deepcopy(DEFAULT_COORDINATES)
+                },
+                "usage_count": 0,
+                "last_used": None,
+                "created_at": datetime.now().isoformat()
+            }
         }
-    }
     
     def __init__(self):
         """프리셋 관리자 초기화"""
@@ -69,7 +73,7 @@ class PresetManager:
         try:
             # 파일이 없으면 기본값으로 생성
             if not self.presets_file.exists():
-                self.presets = self.DEFAULT_PRESETS.copy()
+                self.presets = self.get_default_presets()
                 self.save_presets()
                 return True
             
@@ -78,15 +82,16 @@ class PresetManager:
                 self.presets = json.load(f)
             
             # 누락된 프리셋 추가
-            for key, default_preset in self.DEFAULT_PRESETS.items():
+            default_presets = self.get_default_presets()
+            for key, default_preset in default_presets.items():
                 if key not in self.presets:
-                    self.presets[key] = default_preset
+                    self.presets[key] = copy.deepcopy(default_preset)
             
             return True
             
         except Exception as e:
             print(f"프리셋 로드 실패: {e}")
-            self.presets = self.DEFAULT_PRESETS.copy()
+            self.presets = self.get_default_presets()
             return False
     
     def save_presets(self) -> bool:
@@ -111,11 +116,15 @@ class PresetManager:
         if preset_id == 'default':
             preset_key = '1'
         elif preset_id.startswith('preset_'):
-            preset_key = preset_id.split('_')[1]
+            # preset_1 -> 2, preset_2 -> 3, preset_3 -> 4
+            preset_num = int(preset_id.split('_')[1])
+            preset_key = str(preset_num + 1)
         else:
             preset_key = preset_id
         
-        return self.presets.get(preset_key, {}).get('settings', {})
+        settings = self.presets.get(preset_key, {}).get('settings', {})
+        # 깊은 복사를 반환하여 원본 데이터 보호
+        return copy.deepcopy(settings) if settings else {}
     
     def save_preset(self, preset_id: str, settings: Dict, name: str = None) -> bool:
         """
@@ -134,33 +143,112 @@ class PresetManager:
             if preset_id == 'default':
                 preset_key = '1'
             elif preset_id.startswith('preset_'):
-                preset_key = preset_id.split('_')[1]
+                # preset_1 -> 2, preset_2 -> 3, preset_3 -> 4
+                preset_num = int(preset_id.split('_')[1])
+                preset_key = str(preset_num + 1)
             else:
                 preset_key = preset_id
                 
             if preset_key not in ["1", "2", "3", "4"]:
                 raise ValueError(f"잘못된 프리셋 번호: {preset_key}")
             
-            # 기존 프리셋 정보 가져오기
-            existing_preset = self.presets.get(preset_key, {})
+            # 기존 프리셋 정보를 깊은 복사로 가져오기
+            if preset_key in self.presets:
+                existing_preset = copy.deepcopy(self.presets[preset_key])
+            else:
+                existing_preset = {}
             
-            # 프리셋 업데이트
-            self.presets[preset_key] = {
+            # settings를 깊은 복사하여 독립적인 데이터로 만듦
+            independent_settings = copy.deepcopy(settings)
+            
+            # 새로운 프리셋 데이터 생성 (완전히 새로운 딕셔너리)
+            new_preset = {
                 "name": name or existing_preset.get('name', f'프리셋 {preset_key}'),
-                "description": existing_preset.get('description', f"F{preset_key} 단축키"),
-                "hotkey": existing_preset.get('hotkey', f"F{preset_key}"),
-                "settings": settings,  # 전체 설정 저장
+                "description": existing_preset.get('description', f"사용자 정의 프리셋"),
+                "hotkey": existing_preset.get('hotkey', ""),
+                "settings": independent_settings,  # 독립적인 설정 저장
                 "usage_count": existing_preset.get('usage_count', 0) + 1,
                 "last_used": datetime.now().isoformat(),
                 "created_at": existing_preset.get('created_at', datetime.now().isoformat()),
                 "modified_at": datetime.now().isoformat()
             }
             
+            # 프리셋 업데이트 (완전히 새로운 객체로 교체)
+            self.presets[preset_key] = new_preset
+            
             return self.save_presets()
             
         except Exception as e:
             print(f"프리셋 저장 실패: {e}")
             return False
+    
+    def update_preset_name(self, preset_id: str, new_name: str) -> bool:
+        """프리셋 이름 업데이트"""
+        try:
+            # preset_id 매핑
+            if preset_id == 'default':
+                preset_key = '1'
+            elif preset_id.startswith('preset_'):
+                preset_key = preset_id.split('_')[1]
+            else:
+                preset_key = preset_id
+                
+            if preset_key in self.presets:
+                # 깊은 복사로 새 프리셋 생성
+                new_preset = copy.deepcopy(self.presets[preset_key])
+                new_preset['name'] = new_name
+                self.presets[preset_key] = new_preset
+                return self.save_presets()
+            return False
+            
+        except Exception as e:
+            print(f"프리셋 이름 업데이트 실패: {e}")
+            return False
+    
+    def update_preset_hotkey(self, preset_id: str, new_hotkey: str) -> bool:
+        """프리셋 핫키 업데이트"""
+        try:
+            # preset_id 매핑
+            if preset_id == 'default':
+                preset_key = '1'
+            elif preset_id.startswith('preset_'):
+                preset_key = preset_id.split('_')[1]
+            else:
+                preset_key = preset_id
+                
+            if preset_key in self.presets:
+                # 깊은 복사로 새 프리셋 생성
+                new_preset = copy.deepcopy(self.presets[preset_key])
+                new_preset['hotkey'] = new_hotkey
+                self.presets[preset_key] = new_preset
+                return self.save_presets()
+            return False
+            
+        except Exception as e:
+            print(f"프리셋 핫키 업데이트 실패: {e}")
+            return False
+    
+    def get_preset_data(self, preset_id: str) -> Optional[Dict]:
+        """프리셋 전체 데이터 가져오기 (읽기 전용)"""
+        try:
+            # preset_id 매핑
+            if preset_id == 'default':
+                preset_key = '1'
+            elif preset_id.startswith('preset_'):
+                # preset_1 -> 2, preset_2 -> 3, preset_3 -> 4
+                preset_num = int(preset_id.split('_')[1])
+                preset_key = str(preset_num + 1)
+            else:
+                preset_key = preset_id
+                
+            if preset_key in self.presets:
+                # 깊은 복사본 반환
+                return copy.deepcopy(self.presets[preset_key])
+            return None
+            
+        except Exception as e:
+            print(f"프리셋 데이터 가져오기 실패: {e}")
+            return None
     
     def load_preset(self, name_or_index: str) -> Optional[Dict]:
         """
@@ -175,7 +263,7 @@ class PresetManager:
         try:
             # 인덱스로 검색
             if name_or_index in self.presets:
-                preset = self.presets[name_or_index]
+                preset = copy.deepcopy(self.presets[name_or_index])
                 self._update_usage(name_or_index)
                 return preset
             
@@ -183,7 +271,7 @@ class PresetManager:
             for index, preset in self.presets.items():
                 if preset.get('name') == name_or_index:
                     self._update_usage(index)
-                    return preset
+                    return copy.deepcopy(preset)
             
             print(f"프리셋을 찾을 수 없습니다: {name_or_index}")
             return None
@@ -239,7 +327,7 @@ class PresetManager:
                 'index': index,
                 'name': preset.get('name', f'프리셋 {index}'),
                 'description': preset.get('description', ''),
-                'hotkey': preset.get('hotkey', f'F{index}'),
+                'hotkey': preset.get('hotkey', ''),
                 'usage_count': preset.get('usage_count', 0),
                 'last_used': preset.get('last_used'),
                 'is_current': index == self.current_preset
@@ -293,8 +381,9 @@ class PresetManager:
             성공 여부
         """
         try:
-            if index in self.DEFAULT_PRESETS:
-                self.presets[index] = self.DEFAULT_PRESETS[index].copy()
+            default_presets = self.get_default_presets()
+            if index in default_presets:
+                self.presets[index] = copy.deepcopy(default_presets[index])
                 self.presets[index]['created_at'] = datetime.now().isoformat()
                 return self.save_presets()
             return False

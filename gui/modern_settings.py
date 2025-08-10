@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import json
+import copy
 from pathlib import Path
 
 from config.settings_manager import SettingsManager
@@ -113,7 +114,7 @@ class ModernSettingsWindow:
             ("🎨  이미지 효과", self.show_effects_page, "대비, 선명도, 밝기 조정"),
             ("📄  백지 감지", self.show_blank_detection_page, "빈 페이지 자동 건너뛰기"),
             ("⚡  성능 최적화", self.show_performance_page, "처리 속도 설정"),
-            ("🎯  프리셋 관리", self.show_presets_page, "F1~F4 빠른 설정"),
+            ("🎯  프리셋 관리", self.show_presets_page, "빠른 설정 저장"),
             ("🔧  고급 설정", self.show_advanced_page, "추가 옵션")
         ]
         
@@ -529,6 +530,15 @@ class ModernSettingsWindow:
         
         # 효과 슬라이더들
         self.effect_vars = {}
+        
+        # 해상도 DPI 슬라이더 (맨 위에 배치)
+        self.create_dpi_control(effects_frame, 0)
+        
+        # 구분선
+        separator = tk.Frame(effects_frame, bg=self.colors['border'], height=1)
+        separator.grid(row=1, column=0, columnspan=3, sticky='ew', padx=20, pady=10)
+        
+        # 기타 효과 슬라이더들
         effects = [
             ('대비', 'contrast', 0.0, 2.0, 1.0),
             ('선명도', 'sharpness', 0.0, 2.0, 1.0),
@@ -537,11 +547,11 @@ class ModernSettingsWindow:
         ]
         
         for i, (label, key, min_val, max_val, default) in enumerate(effects):
-            self.create_slider_control(effects_frame, label, key, min_val, max_val, default, i)
+            self.create_slider_control(effects_frame, label, key, min_val, max_val, default, i + 2)
         
         # 흑백 변환 체크박스
         grayscale_frame = tk.Frame(effects_frame, bg=self.colors['card'])
-        grayscale_frame.grid(row=len(effects), column=0, columnspan=3, pady=20)
+        grayscale_frame.grid(row=len(effects) + 2, column=0, columnspan=3, pady=20)
         
         self.grayscale_var = tk.BooleanVar(value=self.settings_manager.get('thumbnail.grayscale', False))
         grayscale_check = tk.Checkbutton(
@@ -805,7 +815,7 @@ class ModernSettingsWindow:
         
         info_text = tk.Label(
             info_frame,
-            text="💡 사용법: 📥 불러오기 = 프리셋 설정을 현재 작업에 적용 | 💾 여기에 저장 = 현재 작업을 프리셋에 저장 | F1~F4 단축키 사용 가능",
+            text="💡 사용법: 📥 불러오기 = 프리셋 설정을 현재 작업에 적용 | 💾 여기에 저장 = 현재 작업을 프리셋에 저장 | 사용자 정의 단축키 설정 가능",
             font=('맑은 고딕', 9),
             bg=self.colors['card'],
             fg=self.colors['accent'],
@@ -819,20 +829,20 @@ class ModernSettingsWindow:
         
         # 프리셋 카드들
         self.preset_hotkeys = {
-            'default': 'F1',
-            'preset_1': 'F2',
-            'preset_2': 'F3',
-            'preset_3': 'F4'
+            'default': '',
+            'preset_1': '',
+            'preset_2': '',
+            'preset_3': ''
         }
         
         # 프리셋 이름 가져오기
         preset_names = {}
         for pid in ['default', 'preset_1', 'preset_2', 'preset_3']:
-            preset_key = '1' if pid == 'default' else pid.split('_')[-1]
-            if preset_key in self.preset_manager.presets:
-                preset_names[pid] = self.preset_manager.presets[preset_key].get('name', f'프리셋 {preset_key}')
+            preset_data = self.preset_manager.get_preset_data(pid)
+            if preset_data:
+                preset_names[pid] = preset_data.get('name', f'프리셋 {pid.split("_")[-1]}')
             else:
-                preset_names[pid] = '기본 설정' if pid == 'default' else f'프리셋 {preset_key}'
+                preset_names[pid] = '기본 설정' if pid == 'default' else f'프리셋 {pid.split("_")[-1]}'
         
         preset_cards = [
             (self.preset_hotkeys['default'], preset_names['default'], 'default', self.colors['success']),
@@ -910,16 +920,13 @@ class ModernSettingsWindow:
             def save_name(event, pid=preset_id, var=name_var):
                 new_name = var.get()
                 if new_name:
-                    preset_key = '1' if pid == 'default' else pid.split('_')[-1]
-                    if preset_key in self.preset_manager.presets:
-                        self.preset_manager.presets[preset_key]['name'] = new_name
-                        self.preset_manager.save_presets()
+                    self.preset_manager.update_preset_name(pid, new_name)
             
             name_entry.bind('<Return>', save_name)
             name_entry.bind('<FocusOut>', save_name)
             
             # 사용 횟수 표시
-            preset_data = self.preset_manager.presets.get(preset_id.split('_')[-1] if preset_id != 'default' else '1', {})
+            preset_data = self.preset_manager.get_preset_data(preset_id) or {}
             usage_count = preset_data.get('usage_count', 0)
             usage_label = tk.Label(
                 name_frame,
@@ -1108,8 +1115,7 @@ class ModernSettingsWindow:
         )
         
         # 프리셋 데이터 가져오기
-        preset_key = '1' if preset_id == 'default' else preset_id.split('_')[-1]
-        preset_data = self.preset_manager.presets.get(preset_key, {})
+        preset_data = self.preset_manager.get_preset_data(preset_id) or {}
         
         # 좌표 데이터 가져오기 (프리셋에 저장된 설정 또는 현재 설정)
         if 'settings' in preset_data and 'coordinates' in preset_data['settings']:
@@ -1403,7 +1409,11 @@ class ModernSettingsWindow:
             # 이미지 효과 설정 로드
             if hasattr(self, 'effect_vars'):
                 for key in self.effect_vars:
-                    value = self.settings_manager.get(f'thumbnail.{key}', 1.0)
+                    # render_dpi는 기본값이 다름
+                    if key == 'render_dpi':
+                        value = self.settings_manager.get(f'thumbnail.{key}', 432)
+                    else:
+                        value = self.settings_manager.get(f'thumbnail.{key}', 1.0)
                     self.effect_vars[key].set(value)
             if hasattr(self, 'grayscale_var'):
                 self.grayscale_var.set(self.settings_manager.get('thumbnail.grayscale', False))
@@ -1448,7 +1458,11 @@ class ModernSettingsWindow:
             # 이미지 효과 설정 저장
             if hasattr(self, 'effect_vars'):
                 for key, var in self.effect_vars.items():
-                    self.settings_manager.set(f'thumbnail.{key}', var.get())
+                    # render_dpi는 정수로 저장
+                    if key == 'render_dpi':
+                        self.settings_manager.set(f'thumbnail.{key}', int(var.get()))
+                    else:
+                        self.settings_manager.set(f'thumbnail.{key}', var.get())
                 if hasattr(self, 'grayscale_var'):
                     self.settings_manager.set('thumbnail.grayscale', self.grayscale_var.get())
             
@@ -1490,6 +1504,111 @@ class ModernSettingsWindow:
                 return
         
         self.window.destroy()
+    
+    def create_dpi_control(self, parent, row):
+        """DPI (해상도) 컨트롤 생성"""
+        # 라벨 및 설명
+        label_frame = tk.Frame(parent, bg=self.colors['card'])
+        label_frame.grid(row=row, column=0, sticky='w', padx=20, pady=10)
+        
+        tk.Label(
+            label_frame,
+            text="🔍 해상도 (DPI):",
+            bg=self.colors['card'],
+            fg=self.colors['text'],
+            font=('Segoe UI', 11, 'bold')
+        ).pack(anchor='w')
+        
+        tk.Label(
+            label_frame,
+            text="높을수록 선명 (6배=432)",
+            bg=self.colors['card'],
+            fg=self.colors['subtext'],
+            font=('Segoe UI', 8)
+        ).pack(anchor='w')
+        
+        # DPI 슬라이더
+        current_dpi = self.settings_manager.get('thumbnail.render_dpi', 500)
+        self.dpi_var = tk.IntVar(value=current_dpi)
+        self.effect_vars['render_dpi'] = self.dpi_var  # effect_vars에 추가
+        
+        # 슬라이더 프레임 (더 넓게)
+        slider_frame = tk.Frame(parent, bg=self.colors['card'])
+        slider_frame.grid(row=row, column=1, sticky='w', padx=10)
+        
+        dpi_slider = tk.Scale(
+            slider_frame,
+            from_=72,  # 1배 (최소)
+            to=1200,   # 16.7배 (최대) - 자유도 높게
+            orient='horizontal',
+            variable=self.dpi_var,
+            bg=self.colors['card'],
+            fg=self.colors['text'],
+            length=400,  # 더 긴 슬라이더
+            highlightthickness=0,
+            resolution=36,  # 0.5배 단위
+            tickinterval=216  # 3배 단위로 눈금
+        )
+        dpi_slider.pack()
+        
+        # 값 표시 프레임
+        value_frame = tk.Frame(parent, bg=self.colors['card'])
+        value_frame.grid(row=row, column=2, sticky='w')
+        
+        # DPI 값과 배율 표시
+        def update_dpi_label(*args):
+            dpi = self.dpi_var.get()
+            multiplier = dpi / 72
+            label_text = f"{dpi} DPI\n({multiplier:.1f}배)"
+            dpi_label.config(text=label_text)
+        
+        dpi_label = tk.Label(
+            value_frame,
+            text=f"{current_dpi} DPI\n({current_dpi/72:.1f}배)",
+            bg=self.colors['card'],
+            fg=self.colors['accent'],
+            font=('Segoe UI', 10, 'bold'),
+            width=10,
+            justify='center'
+        )
+        dpi_label.pack()
+        
+        # 값 변경시 라벨 업데이트
+        self.dpi_var.trace('w', update_dpi_label)
+        
+        # 추천값 버튼들
+        preset_frame = tk.Frame(parent, bg=self.colors['card'])
+        preset_frame.grid(row=row, column=3, sticky='w', padx=10)
+        
+        tk.Label(
+            preset_frame,
+            text="추천:",
+            bg=self.colors['card'],
+            fg=self.colors['subtext'],
+            font=('Segoe UI', 9)
+        ).pack(side='left', padx=(0, 5))
+        
+        dpi_presets = [
+            ("저품질", 216),   # 3배
+            ("표준", 432),     # 6배
+            ("고품질", 648),   # 9배
+            ("최고", 900)      # 12.5배
+        ]
+        
+        for text, dpi in dpi_presets:
+            btn = tk.Button(
+                preset_frame,
+                text=text,
+                command=lambda d=dpi: self.dpi_var.set(d),
+                bg=self.colors['accent'],
+                fg='white',
+                font=('Segoe UI', 8),
+                relief='flat',
+                padx=8,
+                pady=3,
+                cursor='hand2'
+            )
+            btn.pack(side='left', padx=2)
     
     def create_slider_control(self, parent, label, key, min_val, max_val, default, row):
         """슬라이더 컨트롤 생성"""
@@ -1548,11 +1667,11 @@ class ModernSettingsWindow:
             self.logger.info(f"프리셋 적용 시작: {preset_id} (키: {preset_key})")
             
             # 프리셋 데이터 가져오기
-            preset_data = self.preset_manager.presets.get(preset_key, {})
+            preset_data = self.preset_manager.get_preset_data(preset_id) or {}
             
             if preset_data and 'settings' in preset_data:
-                # 프리셋의 설정을 현재 설정으로 적용
-                stored_settings = preset_data['settings']
+                # 프리셋의 설정을 현재 설정으로 적용 - 깊은 복사로 독립성 보장
+                stored_settings = copy.deepcopy(preset_data['settings'])
                 
                 # 좌표 설정 적용
                 if 'coordinates' in stored_settings:
@@ -1609,28 +1728,16 @@ class ModernSettingsWindow:
             # 프리셋 키 결정
             preset_key = '1' if preset_id == 'default' else preset_id.split('_')[-1]
             
-            # 현재 설정 수집
+            # 현재 설정 수집 - 깊은 복사로 독립적인 데이터 생성
             current_settings = {
-                'coordinates': self.settings_manager.get('coordinates'),
-                'blank_detection': self.settings_manager.get('blank_detection'),
-                'thumbnail': self.settings_manager.get('thumbnail'),
-                'performance': self.settings_manager.get('performance')
+                'coordinates': copy.deepcopy(self.settings_manager.get('coordinates')),
+                'blank_detection': copy.deepcopy(self.settings_manager.get('blank_detection')),
+                'thumbnail': copy.deepcopy(self.settings_manager.get('thumbnail')),
+                'performance': copy.deepcopy(self.settings_manager.get('performance'))
             }
             
-            # 프리셋 데이터 가져오기 또는 생성
-            if preset_key not in self.preset_manager.presets:
-                self.preset_manager.presets[preset_key] = {
-                    'name': f'프리셋 {preset_key}',
-                    'hotkey': self.preset_hotkeys.get(preset_id, f'F{preset_key}'),
-                    'usage_count': 0,
-                    'last_used': None
-                }
-            
-            # 프리셋에 설정 저장
-            self.preset_manager.presets[preset_key]['settings'] = current_settings
-            
-            # 프리셋 파일에 저장
-            self.preset_manager.save_presets()
+            # 프리셋에 설정 저장 (preset_manager의 메서드 사용)
+            self.preset_manager.save_preset(preset_id, current_settings)
             
             # 프리셋 페이지 새로고침 - 안전하게 처리
             try:
@@ -1639,14 +1746,16 @@ class ModernSettingsWindow:
             except Exception as e:
                 self.logger.warning(f"프리셋 페이지 새로고침 중 경고: {e}")
             
-            messagebox.showinfo("저장 완료", f"현재 작업 중인 설정을 프리셋 '{self.preset_manager.presets[preset_key].get('name', preset_id)}'에 저장했습니다.")
+            preset_data = self.preset_manager.get_preset_data(preset_id)
+            preset_name = preset_data.get('name', preset_id) if preset_data else preset_id
+            messagebox.showinfo("저장 완료", f"현재 작업 중인 설정을 프리셋 '{preset_name}'에 저장했습니다.")
         except Exception as e:
             self.logger.error(f"프리셋 저장 실패: {e}")
             messagebox.showerror("오류", f"프리셋 저장 실패: {e}")
     
     def change_hotkey(self, preset_id):
         """프리셋 핫키 변경 - 직접 입력 가능"""
-        current_hotkey = self.preset_hotkeys.get(preset_id, 'F1')
+        current_hotkey = self.preset_hotkeys.get(preset_id, '')
         
         # 핫키 입력 다이얼로그 - 크기 확대
         dialog = tk.Toplevel(self.window)
@@ -1813,10 +1922,7 @@ class ModernSettingsWindow:
             
             self.preset_hotkeys[preset_id] = new_hotkey
             # 프리셋 매니저에도 업데이트
-            preset_key = '1' if preset_id == 'default' else preset_id.split('_')[-1]
-            if preset_key in self.preset_manager.presets:
-                self.preset_manager.presets[preset_key]['hotkey'] = new_hotkey
-                self.preset_manager.save_presets()
+            self.preset_manager.update_preset_hotkey(preset_id, new_hotkey)
             
             dialog.destroy()
             self.show_presets_page()  # 페이지 새로고침

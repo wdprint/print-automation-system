@@ -1,0 +1,206 @@
+{
+  "1": {
+    "name": "수정된 프리셋 1",
+    "description": "표준 설정",
+    "hotkey": "F1",
+    "settings": {
+      "coordinates": {
+        "thumbnail_boxes": [
+          {
+            "x": 999,
+            "y": 100,
+            "width": 200,
+            "height": 300
+          },
+          {
+            "x": 400,
+            "y": 100,
+            "width": 200,
+            "height": 300
+          }
+        ],
+        "qr_boxes": [
+          {
+            "x": 150,
+            "y": 450,
+            "size": 80
+          }
+        ]
+      },
+      "blank_detection": {
+        "enabled": true,
+        "threshold": 90
+      }
+    },
+    "usage_count": 7,
+    "last_used": "2025-08-10T14:33:42.348736",
+    "created_at": "2025-08-07T13:26:22.108272",
+    "modified_at": "2025-08-10T14:33:42.348747"
+  },
+  "2": {
+    "name": "테스트 프리셋 2",
+    "description": "사용자 정의 2",
+    "hotkey": "F2",
+    "settings": {
+      "coordinates": {
+        "thumbnail_boxes": [
+          {
+            "x": 200,
+            "y": 200,
+            "width": 250,
+            "height": 350
+          },
+          {
+            "x": 500,
+            "y": 200,
+            "width": 250,
+            "height": 350
+          }
+        ],
+        "qr_boxes": [
+          {
+            "x": 250,
+            "y": 550,
+            "size": 100
+          }
+        ]
+      },
+      "blank_detection": {
+        "enabled": false,
+        "threshold": 95
+      }
+    },
+    "usage_count": 2,
+    "last_used": "2025-08-10T14:33:42.332013",
+    "created_at": "2025-08-07T13:26:22.108287",
+    "modified_at": "2025-08-10T14:33:42.332018"
+  },
+  "3": {
+    "name": "프리셋 3",
+    "description": "사용자 정의 3",
+    "hotkey": "F3",
+    "settings": {
+      "coordinates": {
+        "page_size": {
+          "width": 842,
+          "height": 595
+        },
+        "thumbnail": {
+          "left": {
+            "x": 230,
+            "y": 234,
+            "width": 160,
+            "height": 250,
+            "rotation": 0,
+            "opacity": 1.0
+          },
+          "right": {
+            "x": 658,
+            "y": 228,
+            "width": 160,
+            "height": 250,
+            "rotation": 0,
+            "opacity": 1.0
+          }
+        },
+        "qr": {
+          "left": {
+            "x": 315,
+            "y": 500,
+            "size": 70,
+            "rotation": 0
+          },
+          "right": {
+            "x": 730,
+            "y": 500,
+            "size": 70,
+            "rotation": 0
+          }
+        }
+      },
+      "blank_detection": {
+        "enabled": true,
+        "threshold": "95",
+        "algorithm": "simple",
+        "exclude_areas": {
+          "header": 50,
+          "footer": 50,
+          "left_margin": 20,
+          "right_margin": 20
+        },
+        "cache_enabled": true
+      },
+      "thumbnail": {
+        "max_width": 160,
+        "max_height": 250,
+        "page_selection": "1",
+        "multi_page": false,
+        "grayscale": false,
+        "contrast": 1.0,
+        "sharpness": 1.0,
+        "quality": 95,
+        "brightness": 1.0,
+        "saturation": 1.0
+      },
+      "performance": {
+        "multithreading": true,
+        "max_workers": 4,
+        "max_concurrent_files": 3,
+        "cache_enabled": true,
+        "cache_size_mb": 100,
+        "log_level": "INFO",
+        "batch_size": 10
+      }
+    },
+    "usage_count": 2,
+    "last_used": "2025-08-08T17:05:06.687813",
+    "created_at": "2025-08-07T13:26:22.108290",
+    "modified_at": "2025-08-08T17:05:06.687838"
+  },
+  "4": {
+    "name": "프리셋 4",
+    "description": "사용자 정의 4",
+    "hotkey": "F4",
+    "coordinates": {
+      "page_size": {
+        "width": 842,
+        "height": 595
+      },
+      "thumbnail": {
+        "left": {
+          "x": 230,
+          "y": 234,
+          "width": 160,
+          "height": 250,
+          "rotation": 0,
+          "opacity": 1.0
+        },
+        "right": {
+          "x": 658,
+          "y": 228,
+          "width": 160,
+          "height": 250,
+          "rotation": 0,
+          "opacity": 1.0
+        }
+      },
+      "qr": {
+        "left": {
+          "x": 315,
+          "y": 500,
+          "size": 70,
+          "rotation": 0
+        },
+        "right": {
+          "x": 730,
+          "y": 500,
+          "size": 70,
+          "rotation": 0
+        }
+      }
+    },
+    "usage_count": 0,
+    "last_used": null,
+    "created_at": "2025-08-07T13:26:22.108292"
+  }
+}

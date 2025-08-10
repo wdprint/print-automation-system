@@ -9,6 +9,7 @@ import os
 from typing import Dict, Optional
 
 from config.settings_manager import SettingsManager
+from config.preset_manager import PresetManager
 from core.pdf_processor import PDFProcessor
 from utils.file_classifier import FileClassifier
 from utils.logger import setup_logger
@@ -22,6 +23,7 @@ class ModernMainWindow:
         self.root = TkinterDnD.Tk()
         self.logger = setup_logger(self.__class__.__name__)
         self.settings_manager = SettingsManager()
+        self.preset_manager = PresetManager()
         self.file_classifier = FileClassifier()
         
         # 세련된 라이트 테마
@@ -98,13 +100,20 @@ class ModernMainWindow:
         header.pack(fill='x')
         header.pack_propagate(False)
         
-        # 로고/타이틀 영역
-        title_frame = tk.Frame(header, bg=self.colors['bg'])
-        title_frame.pack(expand=True)
+        # 메인 헤더 컨테이너 (좌중우 레이아웃)
+        header_container = tk.Frame(header, bg=self.colors['bg'])
+        header_container.pack(fill='both', expand=True, padx=20)
+        
+        # 왼쪽: 로고/타이틀 영역
+        title_frame = tk.Frame(header_container, bg=self.colors['bg'])
+        title_frame.pack(side='left', fill='y')
+        
+        title_inner = tk.Frame(title_frame, bg=self.colors['bg'])
+        title_inner.pack(expand=True)
         
         # 아이콘
         icon_label = tk.Label(
-            title_frame,
+            title_inner,
             text="📄",
             font=('Segoe UI Emoji', 32),
             bg=self.colors['bg'],
@@ -114,7 +123,7 @@ class ModernMainWindow:
         
         # 타이틀
         title = tk.Label(
-            title_frame,
+            title_inner,
             text="PDF 인쇄 의뢰서 자동화",
             font=('맑은 고딕', 18),  # 폰트 크기 줄임, 굵기 제거
             bg=self.colors['bg'],
@@ -124,13 +133,71 @@ class ModernMainWindow:
         
         # 서브타이틀
         subtitle = tk.Label(
-            title_frame,
+            title_inner,
             text="v2.0",
             font=('맑은 고딕', 10),
             bg=self.colors['bg'],
             fg=self.colors['subtext']
         )
         subtitle.pack(side='left', padx=(10, 0))
+        
+        # 오른쪽: 현재 프리셋 표시
+        preset_frame = tk.Frame(header_container, bg=self.colors['bg'])
+        preset_frame.pack(side='right', fill='y', padx=(20, 0))
+        
+        preset_inner = tk.Frame(preset_frame, bg=self.colors['card'], 
+                                highlightthickness=1,
+                                highlightbackground=self.colors['border'])
+        preset_inner.pack(expand=True)
+        
+        # 프리셋 레이블
+        preset_label = tk.Label(
+            preset_inner,
+            text="현재 프리셋",
+            font=('맑은 고딕', 9),
+            bg=self.colors['card'],
+            fg=self.colors['subtext']
+        )
+        preset_label.pack(padx=15, pady=(8, 2))
+        
+        # 현재 프리셋 이름 표시
+        current_preset = self.preset_manager.presets.get(self.preset_manager.current_preset, {})
+        preset_name = current_preset.get('name', '기본')
+        preset_hotkey = current_preset.get('hotkey', 'F1')
+        
+        self.preset_name_label = tk.Label(
+            preset_inner,
+            text=f"{preset_name}",
+            font=('맑은 고딕', 12, 'bold'),
+            bg=self.colors['card'],
+            fg=self.colors['accent']
+        )
+        self.preset_name_label.pack(padx=15, pady=(0, 2))
+        
+        # 프리셋 단축키 표시
+        self.preset_hotkey_label = tk.Label(
+            preset_inner,
+            text=f"[{preset_hotkey}]",
+            font=('맑은 고딕', 9),
+            bg=self.colors['card'],
+            fg=self.colors['subtext']
+        )
+        self.preset_hotkey_label.pack(padx=15, pady=(0, 8))
+        
+        # 프리셋 변경 버튼
+        change_preset_btn = tk.Button(
+            preset_inner,
+            text="변경",
+            font=('맑은 고딕', 9),
+            bg=self.colors['accent'],
+            fg='white',
+            bd=0,
+            padx=10,
+            pady=3,
+            cursor='hand2',
+            command=self.open_preset_selector
+        )
+        change_preset_btn.pack(pady=(0, 8))
     
     def create_drop_zone(self, parent):
         """드롭 영역 생성"""
@@ -698,6 +765,149 @@ class ModernMainWindow:
         y = (screen_height - window_height) // 2
         
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    def open_preset_selector(self):
+        """프리셋 선택 다이얼로그 열기"""
+        # 프리셋 선택 창
+        dialog = tk.Toplevel(self.root)
+        dialog.title("프리셋 선택")
+        dialog.geometry("400x350")
+        dialog.configure(bg=self.colors['bg'])
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # 중앙 배치
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (400 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (350 // 2)
+        dialog.geometry(f"400x350+{x}+{y}")
+        
+        # 타이틀
+        title = tk.Label(
+            dialog,
+            text="프리셋 선택",
+            font=('맑은 고딕', 14, 'bold'),
+            bg=self.colors['bg'],
+            fg=self.colors['text']
+        )
+        title.pack(pady=20)
+        
+        # 프리셋 목록
+        presets_frame = tk.Frame(dialog, bg=self.colors['bg'])
+        presets_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        # 프리셋 버튼들
+        for idx in ['1', '2', '3', '4']:
+            preset = self.preset_manager.presets.get(idx, {})
+            name = preset.get('name', f'프리셋 {idx}')
+            hotkey = preset.get('hotkey', f'F{idx}')
+            usage = preset.get('usage_count', 0)
+            
+            # 프리셋 버튼 프레임
+            btn_frame = tk.Frame(presets_frame, bg=self.colors['card'], 
+                                 highlightthickness=1,
+                                 highlightbackground=self.colors['border'])
+            btn_frame.pack(fill='x', pady=5)
+            
+            # 현재 선택된 프리셋이면 강조
+            if idx == self.preset_manager.current_preset:
+                btn_frame.configure(highlightbackground=self.colors['accent'],
+                                   highlightthickness=2)
+            
+            # 버튼 내용
+            btn_content = tk.Frame(btn_frame, bg=self.colors['card'])
+            btn_content.pack(fill='x', padx=10, pady=8)
+            
+            # 왼쪽: 프리셋 정보
+            info_frame = tk.Frame(btn_content, bg=self.colors['card'])
+            info_frame.pack(side='left', fill='x', expand=True)
+            
+            name_label = tk.Label(
+                info_frame,
+                text=f"{name}",
+                font=('맑은 고딕', 11, 'bold'),
+                bg=self.colors['card'],
+                fg=self.colors['text'],
+                anchor='w'
+            )
+            name_label.pack(fill='x')
+            
+            detail_label = tk.Label(
+                info_frame,
+                text=f"{hotkey} | 사용: {usage}회",
+                font=('맑은 고딕', 9),
+                bg=self.colors['card'],
+                fg=self.colors['subtext'],
+                anchor='w'
+            )
+            detail_label.pack(fill='x')
+            
+            # 오른쪽: 선택 버튼
+            select_btn = tk.Button(
+                btn_content,
+                text="선택",
+                font=('맑은 고딕', 9),
+                bg=self.colors['accent'],
+                fg='white',
+                bd=0,
+                padx=15,
+                pady=5,
+                cursor='hand2',
+                command=lambda p=idx: self.select_preset(p, dialog)
+            )
+            select_btn.pack(side='right')
+        
+        # 닫기 버튼
+        close_btn = tk.Button(
+            dialog,
+            text="닫기",
+            font=('맑은 고딕', 10),
+            bg=self.colors['hover'],
+            fg=self.colors['text'],
+            bd=0,
+            padx=20,
+            pady=5,
+            cursor='hand2',
+            command=dialog.destroy
+        )
+        close_btn.pack(pady=(0, 20))
+    
+    def select_preset(self, preset_id, dialog):
+        """프리셋 선택 및 적용"""
+        try:
+            # 프리셋 전환
+            self.preset_manager.quick_switch(int(preset_id))
+            
+            # UI 업데이트
+            self.update_preset_display()
+            
+            # 다이얼로그 닫기
+            dialog.destroy()
+            
+            # 성공 메시지
+            preset = self.preset_manager.presets.get(preset_id, {})
+            name = preset.get('name', f'프리셋 {preset_id}')
+            self.update_status(f"프리셋 '{name}' 적용됨", 'success')
+            
+        except Exception as e:
+            self.logger.error(f"프리셋 선택 실패: {e}")
+            messagebox.showerror("오류", f"프리셋 선택 실패: {e}")
+    
+    def update_preset_display(self):
+        """현재 프리셋 표시 업데이트"""
+        try:
+            current_preset = self.preset_manager.presets.get(self.preset_manager.current_preset, {})
+            preset_name = current_preset.get('name', '기본')
+            preset_hotkey = current_preset.get('hotkey', 'F1')
+            
+            # 레이블 업데이트
+            if hasattr(self, 'preset_name_label'):
+                self.preset_name_label.config(text=preset_name)
+            if hasattr(self, 'preset_hotkey_label'):
+                self.preset_hotkey_label.config(text=f"[{preset_hotkey}]")
+            
+        except Exception as e:
+            self.logger.error(f"프리셋 표시 업데이트 실패: {e}")
     
     def run(self):
         """메인 루프 실행"""

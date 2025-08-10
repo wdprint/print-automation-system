@@ -23,6 +23,28 @@ DEFAULT_PAGE_WIDTH = 842  # A4 가로 (points)
 DEFAULT_PAGE_HEIGHT = 595  # A4 가로 (points)
 DEFAULT_DPI = 150  # 썸네일 생성 DPI
 
+# PDF 처리 모드 (단순화된 3개 모드)
+PROCESSING_MODES = {
+    'standard': {
+        'name': '표준',
+        'description': '일반적인 래스터 방식 (안정적)',
+        'internal_mode': 'raster'
+    },
+    'high_quality': {
+        'name': '고품질',
+        'description': '벡터 방식 (파일 크기 증가)',
+        'internal_mode': 'vector'
+    },
+    'fast': {
+        'name': '빠른 처리',
+        'description': '최적화된 처리 (품질과 속도 균형)',
+        'internal_mode': 'optimized'
+    }
+}
+
+# 기본 처리 모드
+DEFAULT_PROCESSING_MODE = 'standard'
+
 # 좌표 기본값 (2-up 레이아웃)
 DEFAULT_COORDINATES = {
     "page_size": {
@@ -66,6 +88,21 @@ DEFAULT_COORDINATES = {
 # 백지 감지 설정
 BLANK_DETECTION_ALGORITHMS = ['simple', 'entropy', 'histogram']
 DEFAULT_BLANK_THRESHOLD = 95  # 백지 판정 임계값 (%)
+
+# 썸네일 기본 설정
+THUMBNAIL_DEFAULTS = {
+    'max_width': 200,
+    'max_height': 300,
+    'render_dpi': 300,
+    'quality': 95
+}
+
+# QR 코드 기본 설정
+QR_DEFAULTS = {
+    'max_width': 70,
+    'max_height': 70,
+    'quality': 95
+}
 
 # 성능 설정
 DEFAULT_MAX_WORKERS = 4
