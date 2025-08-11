@@ -96,7 +96,7 @@ class PDFProcessor:
                         order_pdf = normalized_path  # 정규화된 PDF로 교체
                         self.is_normalized = True  # 정규화됨 표시
                 
-                # 출력 파일명 생성 (원본 경로 기준)
+                # 출력 파일명 생성 - 항상 원본 파일 경로 사용 (덮어쓰기)
                 output_path = self._generate_output_path(original_order_pdf)
                 
                 # 처리 규칙 적용 (모든 PDF 파일 검사)
@@ -200,8 +200,9 @@ class PDFProcessor:
             return pdf_path
     
     def _generate_output_path(self, order_pdf: str) -> str:
-        """출력 파일 경로 생성"""
-        return self.pdf_utils.generate_output_path(order_pdf, suffix="_완료")
+        """출력 파일 경로 생성 - 원본 파일 덮어쓰기"""
+        # 원본 파일을 직접 덮어쓰기
+        return order_pdf
     
     def _apply_processing_rules(self, file_path: str):
         """처리 규칙 적용"""
@@ -264,7 +265,7 @@ class PDFProcessor:
                     results[name] = None
             
             # 썸네일 리스트 정리 및 표지 우선 배치
-            cover_thumbnail = None
+            cover_thumbnails = []  # 여러 표지를 저장할 리스트
             content_thumbnails = []
             
             for idx in range(len(print_pdfs)):
@@ -274,15 +275,12 @@ class PDFProcessor:
                     import re
                     filename = os.path.basename(print_pdfs[idx])
                     if re.search(r'표지|cover', filename, re.IGNORECASE):
-                        cover_thumbnail = thumb_result[0] if thumb_result else None
+                        cover_thumbnails.extend(thumb_result)  # 표지를 리스트에 추가
                     else:
                         content_thumbnails.extend(thumb_result)
             
-            # 썸네일 리스트 재정렬: 표지가 있으면 첫 번째로
-            if cover_thumbnail:
-                all_thumbnails = [cover_thumbnail] + content_thumbnails
-            else:
-                all_thumbnails = content_thumbnails
+            # 썸네일 리스트 재정렬: 표지들 먼저, 그 다음 내지들
+            all_thumbnails = cover_thumbnails + content_thumbnails
             
             # PDF에 적용
             return self._apply_to_pdf_with_multiple_thumbnails(
@@ -302,7 +300,7 @@ class PDFProcessor:
         try:
             # 여러 PDF에서 썸네일 생성
             all_thumbnails = []
-            cover_thumbnail = None
+            cover_thumbnails = []  # 여러 표지를 저장할 리스트
             content_thumbnails = []
             
             if print_pdfs:
@@ -313,15 +311,12 @@ class PDFProcessor:
                         import re
                         filename = os.path.basename(pdf_path)
                         if re.search(r'표지|cover', filename, re.IGNORECASE):
-                            cover_thumbnail = thumbnails[0] if thumbnails else None
+                            cover_thumbnails.extend(thumbnails)  # 표지를 리스트에 추가
                         else:
                             content_thumbnails.extend(thumbnails)
                 
-                # 썸네일 리스트 재정렬: 표지가 있으면 첫 번째로
-                if cover_thumbnail:
-                    all_thumbnails = [cover_thumbnail] + content_thumbnails
-                else:
-                    all_thumbnails = content_thumbnails
+                # 썸네일 리스트 재정렬: 표지들 먼저, 그 다음 내지들
+                all_thumbnails = cover_thumbnails + content_thumbnails
             
             # QR 이미지 로드
             qr_img = None
@@ -348,22 +343,19 @@ class PDFProcessor:
             # 백지 감지 설정 확인
             blank_detection_enabled = self.settings.get('blank_detection.enabled', False)
             
-            # 썸네일용 페이지 처리 (최대 2페이지만 확인)
-            max_pages_to_check = 2 if blank_detection_enabled else 1
-            pages_checked = 0
+            # 썸네일용 페이지 처리 (백지가 아닌 페이지를 찾을 때까지 확인)
             page_num = 0
             
-            while pages_checked < max_pages_to_check and page_num < len(doc):
+            while page_num < len(doc):
                 page = doc[page_num]
                 
                 # 백지 감지
                 if blank_detection_enabled and self.blank_detector.is_blank_page(page):
                     self.logger.info(f"페이지 {page_num + 1}은 백지입니다. 다음 페이지 확인")
                     page_num += 1
-                    pages_checked += 1
                     continue
                 
-                # PDF 페이지 정보를 직접 반환 (이미지 변환 없이)
+                # 백지가 아닌 페이지를 찾음 - PDF 페이지 정보를 직접 반환 (이미지 변환 없이)
                 thumbnail_info = {
                     'pdf_path': pdf_path,
                     'page_num': page_num,
@@ -372,9 +364,14 @@ class PDFProcessor:
                 }
                 
                 thumbnails.append(thumbnail_info)
+                self.logger.info(f"페이지 {page_num + 1}을 썸네일로 사용합니다.")
                 
                 # 썸네일 하나만 필요하므로 처리 후 종료
                 break
+            
+            # 모든 페이지가 백지인 경우 경고
+            if not thumbnails and blank_detection_enabled:
+                self.logger.warning(f"경고: PDF의 모든 페이지({len(doc)}페이지)가 백지로 감지되었습니다.")
             
             # 문서는 나중에 닫음 (참조 유지)
             # doc.close()  # 나중에 닫음
@@ -550,10 +547,24 @@ class PDFProcessor:
                 # 최종 PDF를 고해상도로 래스터화
                 self._save_as_rasterized(doc, output_path)
             else:
-                # 벡터 그대로 저장 (압축 옵션 적용)
-                doc.save(output_path, garbage=4, deflate=True, clean=True)
-            
-            doc.close()
+                # 원본 파일을 덮어쓰기 위해 임시 파일에 먼저 저장
+                import tempfile
+                import shutil
+                
+                # 임시 파일 생성
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+                    temp_path = tmp_file.name
+                
+                # 임시 파일에 저장 (압축 옵션 적용)
+                doc.save(temp_path, garbage=4, deflate=True, clean=True)
+                doc.close()
+                
+                # 원본 파일을 임시 파일로 교체
+                shutil.move(temp_path, output_path)
+                self.logger.info(f"원본 파일 덮어쓰기 완료: {output_path}")
+                
+                # doc.close()는 이미 위에서 처리됨
+                doc = None  # 참조 제거
             
             # 썸네일 문서들 닫기
             for thumb_info in thumbnails:

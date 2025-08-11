@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pythonstart
 # -*- coding: utf-8 -*-
 """
 PDF 인쇄 의뢰서 자동화 시스템
